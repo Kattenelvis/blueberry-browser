@@ -33,7 +33,7 @@ const sidebarAPI = {
 
   onMessagesUpdated: (callback: (messages: any[]) => void) => {
     electronAPI.ipcRenderer.on("chat-messages-updated", (_, messages) =>
-      callback(messages)
+      callback(messages),
     );
   },
 
@@ -55,7 +55,8 @@ const sidebarAPI = {
 
   onFocusChatInput: (callback: () => void) => {
     electronAPI.ipcRenderer.on("focus-chat-input", callback);
-    return () => electronAPI.ipcRenderer.removeListener("focus-chat-input", callback);
+    return () =>
+      electronAPI.ipcRenderer.removeListener("focus-chat-input", callback);
   },
 };
 

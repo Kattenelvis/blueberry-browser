@@ -4,6 +4,7 @@ import {
   tool,
   type LanguageModel,
   type CoreMessage,
+  stepCountIs,
 } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
@@ -256,25 +257,9 @@ export class LLMClient {
       messages,
       temperature: DEFAULT_TEMPERATURE,
       maxRetries: 3,
-      maxSteps: 5,
+      stopWhen: stepCountIs(5),
       tools: {
-        runJavaScript: tool({
-          description:
-            "Execute JavaScript in the active browser tab and return the result. " +
-            "Use this to read DOM content, extract data, or interact with the page.",
-          inputSchema: z.object({
-            code: z.string().describe("JavaScript to execute in the page context"),
-          }),
-          execute: async ({ code }) => {
-            if (!this.window?.activeTab) return { error: "No active tab" };
-            try {
-              const jsResult = await this.window.activeTab.runJs(code);
-              return { result: String(jsResult) };
-            } catch (err) {
-              return { error: String(err) };
-            }
-          },
-        }),
+        executeCode: executeCode(),
       },
     });
 
