@@ -259,7 +259,7 @@ export class LLMClient {
       maxRetries: 3,
       stopWhen: stepCountIs(5),
       tools: {
-        executeCode: executeCode(),
+        execute: openai.tools.codeInterpreter(),
       },
     });
 
