@@ -1,12 +1,10 @@
 import { WebContents } from "electron";
 import {
   streamText,
-  tool,
   type LanguageModel,
   type CoreMessage,
   stepCountIs,
 } from "ai";
-import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import * as dotenv from "dotenv";
