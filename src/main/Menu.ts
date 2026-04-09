@@ -129,6 +129,11 @@ export class AppMenu {
   private handleToggleSidebar(): void {
     this.mainWindow.sidebar.toggle();
     this.mainWindow.updateAllBounds();
+    const isVisible = this.mainWindow.sidebar.getIsVisible();
+    this.mainWindow.topBar.view.webContents.send("sidebar-state-changed", isVisible);
+    if (isVisible) {
+      this.mainWindow.sidebar.view.webContents.send("focus-chat-input");
+    }
   }
 
   private handleToggleDevTools(): void {

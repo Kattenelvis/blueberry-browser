@@ -36,6 +36,8 @@ interface SidebarAPI {
 
   // Tab information
   getActiveTabInfo: () => Promise<TabInfo | null>;
+
+  onFocusChatInput: (callback: () => void) => () => void;
 }
 
 declare global {

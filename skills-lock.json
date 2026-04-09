@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "electron-development": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "41cc9f568050efbcb4999846a4fb54faa9854bf478dd7dfdd90089d07e903731"
+    }
+  }
+}

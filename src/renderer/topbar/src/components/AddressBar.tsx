@@ -11,7 +11,16 @@ export const AddressBar: React.FC = () => {
     const [url, setUrl] = useState('')
     const [isEditing, setIsEditing] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true) // sidebar starts visible
+
+    // Sync sidebar state whenever it changes (e.g. via CTRL+E menu shortcut)
+    useEffect(() => {
+        if (window.topBarAPI?.onSidebarStateChanged) {
+            return window.topBarAPI.onSidebarStateChanged((isVisible) => {
+                setIsSidebarOpen(isVisible)
+            })
+        }
+    }, [])
 
     // Update URL when active tab changes
     useEffect(() => {

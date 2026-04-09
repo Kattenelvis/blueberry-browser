@@ -154,7 +154,12 @@ export class EventManager {
     ipcMain.handle("toggle-sidebar", () => {
       this.mainWindow.sidebar.toggle();
       this.mainWindow.updateAllBounds();
-      return true;
+      const isVisible = this.mainWindow.sidebar.getIsVisible();
+      this.mainWindow.topBar.view.webContents.send(
+        "sidebar-state-changed",
+        isVisible,
+      );
+      return isVisible;
     });
 
     // Chat message
@@ -228,7 +233,7 @@ export class EventManager {
     if (this.mainWindow.topBar.view.webContents !== sender) {
       this.mainWindow.topBar.view.webContents.send(
         "dark-mode-updated",
-        isDarkMode
+        isDarkMode,
       );
     }
 
@@ -236,7 +241,7 @@ export class EventManager {
     if (this.mainWindow.sidebar.view.webContents !== sender) {
       this.mainWindow.sidebar.view.webContents.send(
         "dark-mode-updated",
-        isDarkMode
+        isDarkMode,
       );
     }
 

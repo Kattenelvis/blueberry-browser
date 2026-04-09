@@ -52,6 +52,11 @@ const sidebarAPI = {
 
   // Tab information
   getActiveTabInfo: () => electronAPI.ipcRenderer.invoke("get-active-tab-info"),
+
+  onFocusChatInput: (callback: () => void) => {
+    electronAPI.ipcRenderer.on("focus-chat-input", callback);
+    return () => electronAPI.ipcRenderer.removeListener("focus-chat-input", callback);
+  },
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

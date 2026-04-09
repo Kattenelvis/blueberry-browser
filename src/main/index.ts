@@ -10,8 +10,8 @@ let menu: AppMenu | null = null;
 
 const createWindow = (): Window => {
   const window = new Window();
-  menu = new AppMenu(window);
   eventManager = new EventManager(window);
+  menu = new AppMenu(window);
   return window;
 };
 
