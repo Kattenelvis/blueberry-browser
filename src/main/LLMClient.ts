@@ -107,18 +107,25 @@ export class LLMClient {
   }
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
+    if (!this.model) {
+      this.sendErrorMessage(
+        request.messageId,
+        "LLM service is not configured. Please add your API key to the .env file.",
+      );
+      return;
+    }
+
     try {
       // Get screenshot from active tab if available
       let screenshot: string | null = null;
-      if (this.window) {
-        const activeTab = this.window.activeTab;
-        if (activeTab) {
-          try {
-            const image = await activeTab.screenshot();
-            screenshot = image.toDataURL();
-          } catch (error) {
-            console.error("Failed to capture screenshot:", error);
-          }
+
+      const activeTab = this?.window?.activeTab;
+      if (activeTab) {
+        try {
+          const image = await activeTab.screenshot();
+          screenshot = image.toDataURL();
+        } catch (error) {
+          console.error("Failed to capture screenshot:", error);
         }
       }
 
@@ -149,14 +156,6 @@ export class LLMClient {
 
       // Send updated messages to renderer
       this.sendMessagesToRenderer();
-
-      if (!this.model) {
-        this.sendErrorMessage(
-          request.messageId,
-          "LLM service is not configured. Please add your API key to the .env file.",
-        );
-        return;
-      }
 
       const messages = await this.prepareMessagesWithContext(request);
       await this.streamResponse(messages, request.messageId);
