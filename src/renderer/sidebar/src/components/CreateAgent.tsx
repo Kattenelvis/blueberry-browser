@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { Chat } from "../components/Chat";
 import {
   ArrowLeft,
   Bot,
@@ -66,7 +67,7 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange }) => (
   </button>
 );
 
-type Tab = "create-agent" | "user-files" | "jobs";
+type Tab = "create-agent" | "user-files" | "jobs" | "chat";
 
 interface CreateAgentProps {
   onBack: () => void;
@@ -156,6 +157,15 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
   ] as const;
 
   const tabs: { id: Tab; label: string; content: React.ReactNode }[] = [
+    {
+      id: "chat",
+      label: "Chat",
+      content: (
+        <>
+          <Chat />
+        </>
+      ),
+    },
     {
       id: "create-agent",
       label: "Create Permissions",
