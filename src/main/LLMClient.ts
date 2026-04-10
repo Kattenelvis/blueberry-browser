@@ -6,13 +6,12 @@ import {
   type ResponseMessage,
   stepCountIs,
 } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
 import * as dotenv from "dotenv";
 import { join } from "path";
 import type { Window } from "./Window";
 import { ErrorHandling } from "./ErrorHandling";
 import type { IAgent } from "./Agent";
+import { LLMModelSelector, type ILLMModelSelector } from "./LLMModelSelector";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
@@ -27,30 +26,24 @@ interface StreamChunk {
   isComplete: boolean;
 }
 
-type LLMProvider = "openai" | "anthropic";
-
-const DEFAULT_MODELS: Record<LLMProvider, string> = {
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-sonnet-20241022",
-};
-
 const DEFAULT_TEMPERATURE = 0.7;
 
 export class LLMClient {
   private readonly webContents: WebContents;
   private window: Window | null = null;
-  private readonly provider: LLMProvider;
-  private readonly modelName: string;
+  private readonly modelSelector: ILLMModelSelector;
   private readonly model: LanguageModel | null;
   private messages: CoreMessage[] = [];
   private activeAgent: IAgent | null = null;
   private readonly errorHandling: ErrorHandling;
 
-  constructor(webContents: WebContents) {
+  constructor(
+    webContents: WebContents,
+    modelSelector: ILLMModelSelector = new LLMModelSelector(),
+  ) {
     this.webContents = webContents;
-    this.provider = this.getProvider();
-    this.modelName = this.getModelName();
-    this.model = this.initializeModel();
+    this.modelSelector = modelSelector;
+    this.model = this.modelSelector.getModel();
     this.errorHandling = new ErrorHandling(webContents);
 
     this.logInitializationStatus();
@@ -73,52 +66,15 @@ export class LLMClient {
     return this.messages;
   }
 
-  private getProvider(): LLMProvider {
-    const provider = process.env.LLM_PROVIDER?.toLowerCase();
-    if (provider === "anthropic") return "anthropic";
-    return "openai"; // Default to OpenAI
-  }
-
-  private getModelName(): string {
-    return process.env.LLM_MODEL || DEFAULT_MODELS[this.provider];
-  }
-
-  private initializeModel(): LanguageModel | null {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return null;
-
-    switch (this.provider) {
-      case "anthropic":
-        return anthropic(this.modelName);
-      case "openai":
-        return openai(this.modelName);
-      default:
-        return null;
-    }
-  }
-
-  private getApiKey(): string | undefined {
-    switch (this.provider) {
-      case "anthropic":
-        return process.env.ANTHROPIC_API_KEY;
-      case "openai":
-        return process.env.OPENAI_API_KEY;
-      default:
-        return undefined;
-    }
-  }
-
   private logInitializationStatus(): void {
     if (this.model) {
       console.log(
-        `✅ LLM Client initialized with ${this.provider} provider using model: ${this.modelName}`,
+        `✅ LLM Client initialized with ${this.modelSelector.provider} provider using model: ${this.modelSelector.modelName}`,
       );
     } else {
-      const keyName =
-        this.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
       console.error(
-        `❌ LLM Client initialization failed: ${keyName} not found in environment variables.\n` +
-        `Please add your API key to the .env file in the project root.`,
+        `❌ LLM Client initialization failed: ${this.modelSelector.getMissingApiKeyName()} not found in environment variables.\n` +
+          `Please add your API key to the .env file in the project root.`,
       );
     }
   }
@@ -143,7 +99,7 @@ export class LLMClient {
       // Send updated messages to renderer
       this.webContents.send("chat-messages-updated", this.messages);
 
-      const messages = await this.prepareMessagesWithContext(request);
+      const messages = await this.prepareMessagesWithContext();
       await this.streamResponse(messages, request.messageId);
     } catch (error) {
       console.error("Error in LLM request:", error);
@@ -151,9 +107,7 @@ export class LLMClient {
     }
   }
 
-  private async prepareMessagesWithContext(
-    _request: ChatRequest,
-  ): Promise<CoreMessage[]> {
+  private async prepareMessagesWithContext(): Promise<CoreMessage[]> {
     let pageUrl: string | null = null;
     let pageText: string | null = null;
 
@@ -181,16 +135,13 @@ export class LLMClient {
   }
 
   private getModelForCurrentAgent(): LanguageModel {
-    if (!this.model) {
+    const model = this.modelSelector.getModel({
+      useResponsesApi: this.activeAgent?.config.features.execute_code ?? false,
+    });
+    if (!model) {
       throw new Error("Model not initialized");
     }
-    if (
-      this.provider === "openai" &&
-      this.activeAgent?.config.features.execute_code
-    ) {
-      return openai.responses(this.modelName);
-    }
-    return this.model;
+    return model;
   }
 
   private async streamResponse(
