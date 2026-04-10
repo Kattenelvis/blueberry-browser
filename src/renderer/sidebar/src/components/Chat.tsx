@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { ArrowUp, Plus, Bot } from "lucide-react";
+import { ArrowUp, Plus, Bot, Trash2 } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import { cn } from "@common/lib/utils";
 import { Button } from "@common/components/Button";
@@ -368,8 +368,8 @@ export const Chat: React.FC = () => {
       >
         <div className="max-w-3xl mx-auto px-4 pt-2 flex flex-col gap-2">
           <Button onClick={clearChat} title="Start new chat" variant="ghost">
-            <Plus className="size-4" />
-            New Chat
+            <Trash2 className="size-4" />
+            Clear Chat
           </Button>
           <AgentStrip agents={agents} onSelect={handleSelectAgent} />
         </div>

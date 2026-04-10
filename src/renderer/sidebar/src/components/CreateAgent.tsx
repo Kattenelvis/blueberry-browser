@@ -74,7 +74,7 @@ interface CreateAgentProps {
 }
 
 export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
-  const [tab, setTab] = useState<Tab>("create-agent");
+  const [tab, setTab] = useState<Tab>("chat");
 
   // Create Agent state
   const [name, setName] = useState("");
