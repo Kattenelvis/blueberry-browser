@@ -13,6 +13,7 @@ import * as dotenv from "dotenv";
 import { join } from "path";
 import { z } from "zod";
 import type { Window } from "./Window";
+import { ErrorHandling } from "./ErrorHandling";
 import type { IAgent } from "./Agent";
 
 // Load environment variables from .env file
@@ -46,12 +47,14 @@ export class LLMClient {
   private readonly model: LanguageModel | null;
   private messages: CoreMessage[] = [];
   private activeAgent: IAgent | null = null;
+  private readonly errorHandling: ErrorHandling;
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
     this.provider = this.getProvider();
     this.modelName = this.getModelName();
     this.model = this.initializeModel();
+    this.errorHandling = new ErrorHandling(webContents);
 
     this.logInitializationStatus();
   }
@@ -125,7 +128,7 @@ export class LLMClient {
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
     if (!this.model) {
-      this.sendErrorMessage(
+      this.errorHandling.sendErrorMessage(
         request.messageId,
         "LLM service is not configured. Please add your API key to the .env file.",
       );
@@ -147,7 +150,7 @@ export class LLMClient {
       await this.streamResponse(messages, request.messageId);
     } catch (error) {
       console.error("Error in LLM request:", error);
-      this.handleStreamError(error, request.messageId);
+      this.errorHandling.handleStreamError(error, request.messageId);
     }
   }
 
@@ -299,50 +302,6 @@ export class LLMClient {
     // Send the final complete signal
     this.sendStreamChunk(messageId, {
       content: accumulatedText,
-      isComplete: true,
-    });
-  }
-
-  private handleStreamError(error: unknown, messageId: string): void {
-    console.error("Error streaming from LLM:", error);
-
-    const errorMessage = this.getErrorMessage(error);
-    this.sendErrorMessage(messageId, errorMessage);
-  }
-
-  private getErrorMessage(error: unknown): string {
-    if (!(error instanceof Error)) {
-      return "An unexpected error occurred. Please try again.";
-    }
-
-    const message = error.message.toLowerCase();
-
-    if (message.includes("401") || message.includes("unauthorized")) {
-      return "Authentication error: Please check your API key in the .env file.";
-    }
-
-    if (message.includes("429") || message.includes("rate limit")) {
-      return "Rate limit exceeded. Please try again in a few moments.";
-    }
-
-    if (
-      message.includes("network") ||
-      message.includes("fetch") ||
-      message.includes("econnrefused")
-    ) {
-      return "Network error: Please check your internet connection.";
-    }
-
-    if (message.includes("timeout")) {
-      return "Request timeout: The service took too long to respond. Please try again.";
-    }
-
-    return "Sorry, I encountered an error while processing your request. Please try again.";
-  }
-
-  private sendErrorMessage(messageId: string, errorMessage: string): void {
-    this.sendStreamChunk(messageId, {
-      content: errorMessage,
       isComplete: true,
     });
   }
