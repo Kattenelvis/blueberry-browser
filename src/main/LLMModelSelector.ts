@@ -2,61 +2,92 @@ import type { LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 
-export type LLMProvider = "openai" | "anthropic";
+type LLMProviderName = "openai" | "anthropic";
 
-const DEFAULT_MODELS: Record<LLMProvider, string> = {
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-sonnet-20241022",
-};
+interface ModelOptions {
+  useResponsesApi?: boolean;
+}
 
-export interface ILLMModelSelector {
-  readonly provider: LLMProvider;
+export interface ILLMProvider {
+  readonly provider: LLMProviderName;
   readonly modelName: string;
-  getModel(options?: { useResponsesApi?: boolean }): LanguageModel | null;
+  getModel(options?: ModelOptions): LanguageModel | null;
   getMissingApiKeyName(): string;
 }
 
-export class LLMModelSelector implements ILLMModelSelector {
-  readonly provider: LLMProvider;
+abstract class BaseLLMProvider implements ILLMProvider {
+  abstract readonly provider: LLMProviderName;
   readonly modelName: string;
 
-  constructor() {
-    this.provider = this.resolveProvider();
-    this.modelName = process.env.LLM_MODEL || DEFAULT_MODELS[this.provider];
+  constructor(modelName?: string) {
+    this.modelName = modelName || this.getDefaultModelName();
   }
 
-  getModel(options?: { useResponsesApi?: boolean }): LanguageModel | null {
-    const apiKey = this.getApiKey();
-    if (!apiKey) {
+  getModel(options?: ModelOptions): LanguageModel | null {
+    if (!this.hasApiKey()) {
       return null;
     }
 
-    if (this.provider === "anthropic") {
-      return anthropic(this.modelName);
-    }
+    return this.createModel(options);
+  }
 
+  abstract getMissingApiKeyName(): string;
+  protected abstract getDefaultModelName(): string;
+  protected abstract hasApiKey(): boolean;
+  protected abstract createModel(options?: ModelOptions): LanguageModel;
+}
+
+class OpenAIProvider extends BaseLLMProvider {
+  readonly provider = "openai" as const;
+
+  getMissingApiKeyName(): string {
+    return "OPENAI_API_KEY";
+  }
+
+  protected getDefaultModelName(): string {
+    return "gpt-4o-mini";
+  }
+
+  protected hasApiKey(): boolean {
+    return Boolean(process.env.OPENAI_API_KEY);
+  }
+
+  protected createModel(options?: ModelOptions): LanguageModel {
     if (options?.useResponsesApi) {
       return openai.responses(this.modelName);
     }
 
     return openai(this.modelName);
   }
+}
+
+class AnthropicProvider extends BaseLLMProvider {
+  readonly provider = "anthropic" as const;
 
   getMissingApiKeyName(): string {
-    return this.provider === "anthropic"
-      ? "ANTHROPIC_API_KEY"
-      : "OPENAI_API_KEY";
+    return "ANTHROPIC_API_KEY";
   }
 
-  private resolveProvider(): LLMProvider {
-    return process.env.LLM_PROVIDER?.toLowerCase() === "anthropic"
-      ? "anthropic"
-      : "openai";
+  protected getDefaultModelName(): string {
+    return "claude-3-5-sonnet-20241022";
   }
 
-  private getApiKey(): string | undefined {
-    return this.provider === "anthropic"
-      ? process.env.ANTHROPIC_API_KEY
-      : process.env.OPENAI_API_KEY;
+  protected hasApiKey(): boolean {
+    return Boolean(process.env.ANTHROPIC_API_KEY);
   }
+
+  protected createModel(): LanguageModel {
+    return anthropic(this.modelName);
+  }
+}
+
+export function createLLMProvider(): ILLMProvider {
+  const provider = process.env.LLM_PROVIDER?.toLowerCase();
+  const modelName = process.env.LLM_MODEL;
+
+  if (provider === "anthropic") {
+    return new AnthropicProvider(modelName);
+  }
+
+  return new OpenAIProvider(modelName);
 }

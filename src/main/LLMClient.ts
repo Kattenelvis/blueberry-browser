@@ -11,7 +11,7 @@ import { join } from "path";
 import type { Window } from "./Window";
 import { ErrorHandling } from "./ErrorHandling";
 import type { IAgent } from "./Agent";
-import { LLMModelSelector, type ILLMModelSelector } from "./LLMModelSelector";
+import { createLLMProvider, type ILLMProvider } from "./LLMModelSelector";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
@@ -31,7 +31,7 @@ const DEFAULT_TEMPERATURE = 0.7;
 export class LLMClient {
   private readonly webContents: WebContents;
   private window: Window | null = null;
-  private readonly modelSelector: ILLMModelSelector;
+  private readonly provider: ILLMProvider;
   private readonly model: LanguageModel | null;
   private messages: CoreMessage[] = [];
   private activeAgent: IAgent | null = null;
@@ -39,11 +39,11 @@ export class LLMClient {
 
   constructor(
     webContents: WebContents,
-    modelSelector: ILLMModelSelector = new LLMModelSelector(),
+    provider: ILLMProvider = createLLMProvider(),
   ) {
     this.webContents = webContents;
-    this.modelSelector = modelSelector;
-    this.model = this.modelSelector.getModel();
+    this.provider = provider;
+    this.model = this.provider.getModel();
     this.errorHandling = new ErrorHandling(webContents);
 
     this.logInitializationStatus();
@@ -69,12 +69,12 @@ export class LLMClient {
   private logInitializationStatus(): void {
     if (this.model) {
       console.log(
-        `✅ LLM Client initialized with ${this.modelSelector.provider} provider using model: ${this.modelSelector.modelName}`,
+        `✅ LLM Client initialized with ${this.provider.provider} provider using model: ${this.provider.modelName}`,
       );
     } else {
       console.error(
-        `❌ LLM Client initialization failed: ${this.modelSelector.getMissingApiKeyName()} not found in environment variables.\n` +
-          `Please add your API key to the .env file in the project root.`,
+        `❌ LLM Client initialization failed: ${this.provider.getMissingApiKeyName()} not found in environment variables.\n` +
+        `Please add your API key to the .env file in the project root.`,
       );
     }
   }
@@ -135,7 +135,7 @@ export class LLMClient {
   }
 
   private getModelForCurrentAgent(): LanguageModel {
-    const model = this.modelSelector.getModel({
+    const model = this.provider.getModel({
       useResponsesApi: this.activeAgent?.config.features.execute_code ?? false,
     });
     if (!model) {
@@ -158,7 +158,7 @@ export class LLMClient {
       messages,
       temperature: DEFAULT_TEMPERATURE,
       maxRetries: 3,
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(1),
       tools,
     });
 
