@@ -1,17 +1,14 @@
 import { WebContents } from "electron";
 import {
   streamText,
-  tool,
   type LanguageModel,
   type CoreMessage,
-  type Tool,
   stepCountIs,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import * as dotenv from "dotenv";
 import { join } from "path";
-import { z } from "zod";
 import type { Window } from "./Window";
 import { ErrorHandling } from "./ErrorHandling";
 import type { IAgent } from "./Agent";
@@ -36,7 +33,6 @@ const DEFAULT_MODELS: Record<LLMProvider, string> = {
   anthropic: "claude-3-5-sonnet-20241022",
 };
 
-const MAX_CONTEXT_LENGTH = 4000;
 const DEFAULT_TEMPERATURE = 0.7;
 
 export class LLMClient {
@@ -157,7 +153,6 @@ export class LLMClient {
   private async prepareMessagesWithContext(
     _request: ChatRequest,
   ): Promise<CoreMessage[]> {
-    // Get page context from active tab
     let pageUrl: string | null = null;
     let pageText: string | null = null;
 
@@ -165,74 +160,22 @@ export class LLMClient {
       const activeTab = this.window.activeTab;
       if (activeTab) {
         pageUrl = activeTab.url;
-        try {
-          pageText = await activeTab.getTabText();
-        } catch (error) {
-          console.error("Failed to get page text:", error);
+        if (this.activeAgent?.config.features.read_page) {
+          try {
+            pageText = await activeTab.getTabText();
+          } catch (error) {
+            console.error("Failed to get page text:", error);
+          }
         }
       }
     }
 
-    const systemContent = this.activeAgent
-      ? this.activeAgent.getSystemPrompt({ url: pageUrl, pageText })
-      : this.buildSystemPrompt(pageUrl, pageText);
-
     const systemMessage: CoreMessage = {
       role: "system",
-      content: systemContent,
+      content: this.activeAgent?.getSystemPrompt({ url: pageUrl, pageText }) ?? "",
     };
 
     return [systemMessage, ...this.messages];
-  }
-
-  private buildSystemPrompt(
-    url: string | null,
-    pageText: string | null,
-  ): string {
-    const parts: string[] = [
-      "You are a helpful AI assistant integrated into a web browser.",
-      "You can analyze and discuss web pages with the user.",
-      "Use takeScreenshot only when the user explicitly asks to look at the page visually.",
-      "Use webSearch to look up current information when needed.",
-    ];
-
-    if (url) {
-      parts.push(`\nCurrent page URL: ${url}`);
-    }
-
-    if (pageText) {
-      const truncatedText = this.truncateText(pageText, MAX_CONTEXT_LENGTH);
-      parts.push(`\nPage content (text):\n${truncatedText}`);
-    }
-
-    return parts.join("\n");
-  }
-
-  private truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  }
-
-  private getDefaultTools(): Record<string, Tool> {
-    return {
-      takeScreenshot: tool({
-        description:
-          "Capture a screenshot of the current browser tab for visual inspection.",
-        inputSchema: z.object({}),
-        execute: async () => {
-          const activeTab = this.window?.activeTab;
-          if (!activeTab) throw new Error("No active tab available to capture.");
-          const image = await activeTab.screenshot();
-          return { imageBase64: image.toPNG().toString("base64"), mediaType: "image/png" as const };
-        },
-        toModelOutput: (output) => ({
-          type: "content",
-          value: [{ type: "media", data: output.imageBase64, mediaType: output.mediaType }],
-        }),
-      }),
-      execute: openai.tools.codeInterpreter(),
-      webSearch: openai.tools.webSearch(),
-    };
   }
 
   private async streamResponse(
@@ -246,7 +189,7 @@ export class LLMClient {
     const tools =
       this.activeAgent && this.window
         ? this.activeAgent.getTools(this.window)
-        : this.getDefaultTools();
+        : {};
 
     const result = streamText({
       model: this.model,

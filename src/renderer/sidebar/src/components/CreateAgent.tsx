@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ArrowLeft, Bot } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { ArrowLeft, Bot, FileText, Upload, X } from "lucide-react";
 import { Button } from "@common/components/Button";
 import { cn } from "@common/lib/utils";
 
@@ -67,9 +67,41 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
   const [features, setFeatures] = useState<Record<string, boolean>>(
     Object.fromEntries(FEATURES.map((f) => [f.id, false])),
   );
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleFeature = (id: string, value: boolean) => {
     setFeatures((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return;
+    const next = Array.from(incoming).filter(
+      (f) => !files.some((existing) => existing.name === f.name),
+    );
+    setFiles((prev) => [...prev, ...next]);
+  };
+
+  const removeFile = (name: string) => {
+    setFiles((prev) => prev.filter((f) => f.name !== name));
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    addFiles(e.dataTransfer.files);
   };
 
   const handleCreate = async () => {
@@ -144,6 +176,75 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
               </div>
             ))}
           </div>
+        </div>
+        {/* User Files */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            User Files
+          </label>
+
+          {/* Drop zone */}
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed",
+              "px-4 py-8 cursor-pointer transition-colors duration-150",
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/40 hover:bg-muted/30",
+            )}
+          >
+            <div className={cn(
+              "size-10 rounded-xl flex items-center justify-center",
+              isDragging ? "bg-primary/10" : "bg-muted",
+            )}>
+              <Upload className={cn(
+                "size-5 transition-colors",
+                isDragging ? "text-primary" : "text-muted-foreground",
+              )} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">
+                Drop files here
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                or click to browse
+              </p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => addFiles(e.target.files)}
+            />
+          </div>
+
+          {/* File list */}
+          {files.length > 0 && (
+            <div className="flex flex-col gap-1 mt-1">
+              {files.map((file) => (
+                <div
+                  key={file.name}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 group"
+                >
+                  <FileText className="size-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-foreground flex-1 truncate">
+                    {file.name}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeFile(file.name); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

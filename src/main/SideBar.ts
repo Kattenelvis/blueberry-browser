@@ -11,6 +11,7 @@ export class SideBar {
   private isVisible: boolean = true;
   private agents: IAgent[] = [];
   private activeAgentName: string | null = null;
+  private defaultAgent!: IAgent;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -18,8 +19,21 @@ export class SideBar {
     baseWindow.contentView.addChildView(this.webContentsView);
     this.setupBounds();
 
-    // Initialize LLM client
     this.llmClient = new LLMClient(this.webContentsView.webContents);
+    this.initDefaultAgent();
+  }
+
+  private initDefaultAgent(): void {
+    this.defaultAgent = new BrowserAgent({
+      name: "Default",
+      features: {
+        take_screenshot: false,
+        execute_code: false,
+        read_page: false,
+        navigate: false,
+      },
+    });
+    this.llmClient.setAgent(this.defaultAgent);
   }
 
   private createWebContentsView(): WebContentsView {
@@ -88,7 +102,6 @@ export class SideBar {
     this.agents.push(agent);
     this.activeAgentName = agent.name;
     this.llmClient.setAgent(agent);
-    console.log(`Agent created and activated: "${agent.name}"`);
     return agent;
   }
 
