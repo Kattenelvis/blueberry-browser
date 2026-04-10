@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Chat } from "../components/Chat";
 import {
   ArrowLeft,
@@ -16,6 +16,15 @@ interface AgentFeature {
   id: string;
   label: string;
   description: string;
+}
+
+interface AgentInfo {
+  name: string;
+  config: {
+    name: string;
+    features: Record<string, boolean>;
+  };
+  isActive: boolean;
 }
 
 const FEATURES: AgentFeature[] = [
@@ -86,14 +95,25 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleFeature = (id: string, value: boolean) => {
     setFeatures((prev) => ({ ...prev, [id]: value }));
   };
 
+  const loadAgents = async () => {
+    const list = await window.sidebarAPI.getAgents();
+    setAgents(list);
+  };
+
+  useEffect(() => {
+    loadAgents();
+  }, []);
+
   const handleCreate = async () => {
     await window.sidebarAPI.createAgent({ name: name.trim(), features });
+    await loadAgents();
     onBack();
   };
 
@@ -155,6 +175,11 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
       metrics: ["Audience: 18 leads", "Template: Sales nudge"],
     },
   ] as const;
+
+  const getEnabledFeatureLabels = (agent: AgentInfo) =>
+    FEATURES.filter((feature) => agent.config.features[feature.id]).map(
+      (feature) => feature.label,
+    );
 
   const tabs: { id: Tab; label: string; content: React.ReactNode }[] = [
     {
@@ -223,6 +248,59 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Existing Permissions
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Reuse these in chat by switching the active permission set.
+                </p>
+              </div>
+
+              {agents.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                  No permissions created yet.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {agents.map((agent) => {
+                    const enabledFeatures = getEnabledFeatureLabels(agent);
+
+                    return (
+                      <div
+                        key={agent.name}
+                        className="rounded-xl border border-border bg-background px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm font-medium text-foreground">
+                            {agent.name}
+                          </p>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {enabledFeatures.length > 0 ? (
+                            enabledFeatures.map((feature) => (
+                              <span
+                                key={feature}
+                                className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground"
+                              >
+                                {feature}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              No capabilities enabled
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
