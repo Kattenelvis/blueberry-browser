@@ -84,6 +84,7 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
   // User Files state
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleFeature = (id: string, value: boolean) => {
@@ -130,7 +131,8 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
       when: "Every day at 08:00",
       status: "Queued",
       tone: "bg-sky-500/10 text-sky-600 dark:text-sky-300",
-      details: "Collects headlines, summarizes changes, and drafts a morning update.",
+      details:
+        "Collects headlines, summarizes changes, and drafts a morning update.",
       metrics: ["Priority: Medium", "Source set: 6 sites"],
     },
     {
@@ -138,7 +140,8 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
       when: "Running now",
       status: "In Progress",
       tone: "bg-amber-500/10 text-amber-600 dark:text-amber-300",
-      details: "Scanning tracked pages and preparing a diff for anything newly changed.",
+      details:
+        "Scanning tracked pages and preparing a diff for anything newly changed.",
       metrics: ["Step: 3 of 5", "ETA: 2 min"],
     },
     {
@@ -146,7 +149,8 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
       when: "Apr 12 at 14:30",
       status: "Scheduled",
       tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-      details: "Drafts personalized follow-ups from the CRM export and recent notes.",
+      details:
+        "Drafts personalized follow-ups from the CRM export and recent notes.",
       metrics: ["Audience: 18 leads", "Template: Sales nudge"],
     },
   ] as const;
@@ -305,33 +309,78 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
       content: (
         <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-4">
           <div className="rounded-xl border border-border bg-muted/20 p-4 flex items-start gap-3">
-            <div className="size-10 rounded-xl bg-muted flex items-center justify-center"><CalendarClock className="size-5 text-muted-foreground" /></div>
-            <div><p className="text-sm font-medium">Schedule AI Jobs</p><p className="text-xs text-muted-foreground mt-1">Mock UI for queued and recurring automations.</p></div>
+            <div className="size-10 rounded-xl bg-muted flex items-center justify-center">
+              <CalendarClock className="size-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Schedule AI Jobs</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Mock UI for queued and recurring automations.
+              </p>
+            </div>
           </div>
           <div className="rounded-xl border border-border p-4 flex flex-col gap-3">
-            <input placeholder="Summarize support inbox" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/40" />
+            <input
+              placeholder="Prompt"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/40"
+            />
             <div className="grid grid-cols-2 gap-3">
-              <input type="date" className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/40" />
-              <input type="time" className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/40" />
+              <input
+                type="date"
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/40"
+              />
+              <input
+                type="time"
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/40"
+              />
             </div>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="size-4 rounded border-border text-primary focus:ring-primary/30"
+              />
+              <span>Recurring</span>
+            </label>
+            {isRecurring && (
+              <select className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/40">
+                <option>Daily</option>
+                <option>Weekly</option>
+                <option>Weekdays</option>
+                <option>Monthly</option>
+              </select>
+            )}
             <Button className="w-full rounded-xl">Schedule Job</Button>
           </div>
           {jobs.map((job) => (
-            <div key={job.name} className="rounded-xl border border-border px-4 py-3 flex flex-col gap-3">
+            <div
+              key={job.name}
+              className="rounded-xl border border-border px-4 py-3 flex flex-col gap-3"
+            >
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium">{job.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{job.when}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {job.when}
+                  </p>
                 </div>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${job.tone}`}>
-                  {job.status === "In Progress" && <LoaderCircle className="size-3.5 animate-spin" />}
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${job.tone}`}
+                >
+                  {job.status === "In Progress" && (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  )}
                   {job.status}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">{job.details}</p>
               <div className="flex flex-wrap gap-2">
                 {job.metrics.map((metric) => (
-                  <span key={metric} className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                  <span
+                    key={metric}
+                    className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground"
+                  >
                     {metric}
                   </span>
                 ))}
