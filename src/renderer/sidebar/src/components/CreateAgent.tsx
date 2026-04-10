@@ -550,9 +550,6 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
       {/* Header with back button + tabs */}
       <div className="border-b border-border">
         <div className="flex items-center gap-1 px-3 pt-2">
-          <Button variant="ghost" size="icon-xs" onClick={onBack} title="Back">
-            <ArrowLeft className="size-4" />
-          </Button>
           {tabs.map(({ id, label }) => (
             <button
               key={id}
