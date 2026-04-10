@@ -174,6 +174,16 @@ export class EventManager {
       return { name: agent.name, config: agent.config };
     });
 
+    // Get agents
+    ipcMain.handle("sidebar-get-agents", () => {
+      return this.mainWindow.sidebar.getAgents();
+    });
+
+    // Set active agent
+    ipcMain.handle("sidebar-set-active-agent", (_, name: string) => {
+      return this.mainWindow.sidebar.setActiveAgent(name);
+    });
+
     // Clear chat
     ipcMain.handle("sidebar-clear-chat", () => {
       this.mainWindow.sidebar.client.clearMessages();

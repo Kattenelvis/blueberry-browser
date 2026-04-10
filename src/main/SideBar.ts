@@ -10,6 +10,7 @@ export class SideBar {
   private llmClient: LLMClient;
   private isVisible: boolean = true;
   private agents: IAgent[] = [];
+  private activeAgentName: string | null = null;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -85,13 +86,26 @@ export class SideBar {
   createAgent(config: AgentConfig): IAgent {
     const agent = new BrowserAgent(config);
     this.agents.push(agent);
+    this.activeAgentName = agent.name;
     this.llmClient.setAgent(agent);
     console.log(`Agent created and activated: "${agent.name}"`);
     return agent;
   }
 
-  getAgents(): IAgent[] {
-    return this.agents;
+  getAgents(): Array<{ name: string; config: AgentConfig; isActive: boolean }> {
+    return this.agents.map((a) => ({
+      name: a.name,
+      config: a.config,
+      isActive: a.name === this.activeAgentName,
+    }));
+  }
+
+  setActiveAgent(name: string): boolean {
+    const agent = this.agents.find((a) => a.name === name);
+    if (!agent) return false;
+    this.activeAgentName = agent.name;
+    this.llmClient.setAgent(agent);
+    return true;
   }
 
   show(): void {

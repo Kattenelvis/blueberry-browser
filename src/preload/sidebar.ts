@@ -28,6 +28,11 @@ const sidebarAPI = {
   createAgent: (config: { name: string; features: Record<string, boolean> }) =>
     electronAPI.ipcRenderer.invoke("sidebar-create-agent", config),
 
+  getAgents: () => electronAPI.ipcRenderer.invoke("sidebar-get-agents"),
+
+  setActiveAgent: (name: string) =>
+    electronAPI.ipcRenderer.invoke("sidebar-set-active-agent", name),
+
   getMessages: () => electronAPI.ipcRenderer.invoke("sidebar-get-messages"),
 
   onChatResponse: (callback: (data: ChatResponse) => void) => {

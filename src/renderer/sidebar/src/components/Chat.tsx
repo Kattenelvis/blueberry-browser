@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { ArrowUp, Square, Sparkles, Plus } from "lucide-react";
+import { ArrowUp, Plus, Bot } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import { cn } from "@common/lib/utils";
 import { Button } from "@common/components/Button";
@@ -281,10 +281,63 @@ const ConversationTurnComponent: React.FC<{
   </div>
 );
 
+// Agent chip strip
+const AgentStrip: React.FC<{
+  agents: AgentInfo[];
+  onSelect: (name: string) => void;
+}> = ({ agents, onSelect }) => {
+  if (agents.length === 0) return <div>{agents.length}</div>;
+  return (
+    <div className="flex gap-1.5 flex-wrap">
+      {agents.map((agent) => (
+        <button
+          key={agent.name}
+          onClick={() => onSelect(agent.name)}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+            "border transition-colors duration-150",
+            agent.isActive
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground",
+          )}
+        >
+          <Bot className="size-3" />
+          {agent.name}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+interface AgentInfo {
+  name: string;
+  config: { name: string; features: Record<string, boolean> };
+  isActive: boolean;
+}
+
 // Main Chat Component
 export const Chat: React.FC = () => {
   const { messages, isLoading, sendMessage, clearChat } = useChat();
   const { scrollRef, containerRef, onScroll } = useAutoScroll(messages);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+
+  const loadAgents = async () => {
+    try {
+      const list = await window.sidebarAPI.getAgents();
+      setAgents(list);
+    } catch {
+      // agents unavailable
+    }
+  };
+
+  useEffect(() => {
+    loadAgents();
+  }, []);
+
+  const handleSelectAgent = async (name: string) => {
+    await window.sidebarAPI.setActiveAgent(name);
+    await loadAgents();
+  };
 
   // Group messages into conversation turns
   const conversationTurns: ConversationTurn[] = [];
@@ -312,15 +365,17 @@ export const Chat: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto" ref={containerRef} onScroll={onScroll}>
-        <div className="h-8 max-w-3xl mx-auto px-4">
-          {/* New Chat Button - Floating */}
-          {messages.length > 0 && (
-            <Button onClick={clearChat} title="Start new chat" variant="ghost">
-              <Plus className="size-4" />
-              New Chat
-            </Button>
-          )}
+      <div
+        className="flex-1 overflow-y-auto"
+        ref={containerRef}
+        onScroll={onScroll}
+      >
+        <div className="max-w-3xl mx-auto px-4 pt-2 flex flex-col gap-2">
+          <Button onClick={clearChat} title="Start new chat" variant="ghost">
+            <Plus className="size-4" />
+            New Chat
+          </Button>
+          <AgentStrip agents={agents} onSelect={handleSelectAgent} />
         </div>
 
         <div className="pb-4 relative max-w-3xl mx-auto px-4">
@@ -362,4 +417,3 @@ export const Chat: React.FC = () => {
     </div>
   );
 };
-
