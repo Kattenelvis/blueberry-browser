@@ -116,33 +116,11 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
     addFiles(e.dataTransfer.files);
   };
 
-  return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header with back button + tabs */}
-      <div className="border-b border-border">
-        <div className="flex items-center gap-1 px-3 pt-2">
-          <Button variant="ghost" size="icon-xs" onClick={onBack} title="Back">
-            <ArrowLeft className="size-4" />
-          </Button>
-          {(["create-agent", "user-files"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-t-md border-b-2 -mb-px transition-colors",
-                tab === t
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t === "create-agent" ? "Create Agent" : "User Files"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Create Agent tab */}
-      {tab === "create-agent" && (
+  const tabs: { id: Tab; label: string; content: React.ReactNode }[] = [
+    {
+      id: "create-agent",
+      label: "Create Permissions",
+      content: (
         <>
           <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
             <div className="flex justify-center">
@@ -159,7 +137,7 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="My Agent"
+                placeholder="My Permissions"
                 className={cn(
                   "w-full rounded-xl border border-border bg-background px-4 py-2.5",
                   "text-sm text-foreground placeholder:text-muted-foreground",
@@ -205,14 +183,16 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
               disabled={!name.trim()}
               className="w-full rounded-xl"
             >
-              Create Agent
+              Create Permissions
             </Button>
           </div>
         </>
-      )}
-
-      {/* User Files tab */}
-      {tab === "user-files" && (
+      ),
+    },
+    {
+      id: "user-files",
+      label: "User Files",
+      content: (
         <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-4">
           <div
             onDragOver={onDragOver}
@@ -282,7 +262,38 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
             </div>
           )}
         </div>
-      )}
+      ),
+    },
+  ];
+
+  const activeTab = tabs.find(({ id }) => id === tab) ?? tabs[0];
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Header with back button + tabs */}
+      <div className="border-b border-border">
+        <div className="flex items-center gap-1 px-3 pt-2">
+          <Button variant="ghost" size="icon-xs" onClick={onBack} title="Back">
+            <ArrowLeft className="size-4" />
+          </Button>
+          {tabs.map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-t-md border-b-2 -mb-px transition-colors",
+                tab === id
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab.content}
     </div>
   );
 };
