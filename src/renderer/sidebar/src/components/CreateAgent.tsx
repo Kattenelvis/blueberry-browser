@@ -18,7 +18,7 @@ const FEATURES: AgentFeature[] = [
   {
     id: "execute_code",
     label: "Execute Code",
-    description: "Run JavaScript in the active tab",
+    description: "Run Python code executed on OpenAI's server",
   },
   {
     id: "read_page",
@@ -58,21 +58,33 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange }) => (
   </button>
 );
 
+type Tab = "create-agent" | "user-files";
+
 interface CreateAgentProps {
   onBack: () => void;
 }
 
 export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
+  const [tab, setTab] = useState<Tab>("create-agent");
+
+  // Create Agent state
   const [name, setName] = useState("");
   const [features, setFeatures] = useState<Record<string, boolean>>(
     Object.fromEntries(FEATURES.map((f) => [f.id, false])),
   );
+
+  // User Files state
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleFeature = (id: string, value: boolean) => {
     setFeatures((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleCreate = async () => {
+    await window.sidebarAPI.createAgent({ name: name.trim(), features });
+    onBack();
   };
 
   const addFiles = (incoming: FileList | null) => {
@@ -83,8 +95,8 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
     setFiles((prev) => [...prev, ...next]);
   };
 
-  const removeFile = (name: string) => {
-    setFiles((prev) => prev.filter((f) => f.name !== name));
+  const removeFile = (fileName: string) => {
+    setFiles((prev) => prev.filter((f) => f.name !== fileName));
   };
 
   const onDragOver = (e: React.DragEvent) => {
@@ -104,86 +116,104 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
     addFiles(e.dataTransfer.files);
   };
 
-  const handleCreate = async () => {
-    await window.sidebarAPI.createAgent({ name: name.trim(), features });
-    onBack();
-  };
-
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <Button variant="ghost" size="icon-xs" onClick={onBack} title="Back">
-          <ArrowLeft className="size-4" />
-        </Button>
-        <span className="text-sm font-medium text-foreground">New Agent</span>
+      {/* Header with back button + tabs */}
+      <div className="border-b border-border">
+        <div className="flex items-center gap-1 px-3 pt-2">
+          <Button variant="ghost" size="icon-xs" onClick={onBack} title="Back">
+            <ArrowLeft className="size-4" />
+          </Button>
+          {(["create-agent", "user-files"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-t-md border-b-2 -mb-px transition-colors",
+                tab === t
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t === "create-agent" ? "Create Agent" : "User Files"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Form */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
-        {/* Agent icon hint */}
-        <div className="flex justify-center">
-          <div className="size-14 rounded-2xl bg-muted flex items-center justify-center">
-            <Bot className="size-7 text-muted-foreground" />
-          </div>
-        </div>
-
-        {/* Name */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My Agent"
-            className={cn(
-              "w-full rounded-xl border border-border bg-background px-4 py-2.5",
-              "text-sm text-foreground placeholder:text-muted-foreground",
-              "focus:outline-none focus:border-primary/40",
-              "transition-colors duration-150",
-            )}
-          />
-        </div>
-
-        {/* Features */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Capabilities
-          </label>
-          <div className="flex flex-col gap-1 rounded-xl border border-border overflow-hidden">
-            {FEATURES.map((feature, i) => (
-              <div
-                key={feature.id}
-                className={cn(
-                  "flex items-center justify-between px-4 py-3 bg-background",
-                  i < FEATURES.length - 1 && "border-b border-border",
-                )}
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-foreground">
-                    {feature.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {feature.description}
-                  </span>
-                </div>
-                <Toggle
-                  enabled={features[feature.id]}
-                  onChange={(v) => toggleFeature(feature.id, v)}
-                />
+      {/* Create Agent tab */}
+      {tab === "create-agent" && (
+        <>
+          <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
+            <div className="flex justify-center">
+              <div className="size-14 rounded-2xl bg-muted flex items-center justify-center">
+                <Bot className="size-7 text-muted-foreground" />
               </div>
-            ))}
-          </div>
-        </div>
-        {/* User Files */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            User Files
-          </label>
+            </div>
 
-          {/* Drop zone */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="My Agent"
+                className={cn(
+                  "w-full rounded-xl border border-border bg-background px-4 py-2.5",
+                  "text-sm text-foreground placeholder:text-muted-foreground",
+                  "focus:outline-none focus:border-primary/40 transition-colors duration-150",
+                )}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Capabilities
+              </label>
+              <div className="flex flex-col gap-1 rounded-xl border border-border overflow-hidden">
+                {FEATURES.map((feature, i) => (
+                  <div
+                    key={feature.id}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-3 bg-background",
+                      i < FEATURES.length - 1 && "border-b border-border",
+                    )}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium text-foreground">
+                        {feature.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {feature.description}
+                      </span>
+                    </div>
+                    <Toggle
+                      enabled={features[feature.id]}
+                      onChange={(v) => toggleFeature(feature.id, v)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 py-4 border-t border-border">
+            <Button
+              onClick={handleCreate}
+              disabled={!name.trim()}
+              className="w-full rounded-xl"
+            >
+              Create Agent
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* User Files tab */}
+      {tab === "user-files" && (
+        <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-4">
           <div
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
@@ -191,20 +221,24 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed",
-              "px-4 py-8 cursor-pointer transition-colors duration-150",
+              "px-4 py-10 cursor-pointer transition-colors duration-150",
               isDragging
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/40 hover:bg-muted/30",
             )}
           >
-            <div className={cn(
-              "size-10 rounded-xl flex items-center justify-center",
-              isDragging ? "bg-primary/10" : "bg-muted",
-            )}>
-              <Upload className={cn(
-                "size-5 transition-colors",
-                isDragging ? "text-primary" : "text-muted-foreground",
-              )} />
+            <div
+              className={cn(
+                "size-10 rounded-xl flex items-center justify-center",
+                isDragging ? "bg-primary/10" : "bg-muted",
+              )}
+            >
+              <Upload
+                className={cn(
+                  "size-5 transition-colors",
+                  isDragging ? "text-primary" : "text-muted-foreground",
+                )}
+              />
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">
@@ -223,9 +257,8 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
             />
           </div>
 
-          {/* File list */}
           {files.length > 0 && (
-            <div className="flex flex-col gap-1 mt-1">
+            <div className="flex flex-col gap-1">
               {files.map((file) => (
                 <div
                   key={file.name}
@@ -236,7 +269,10 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
                     {file.name}
                   </span>
                   <button
-                    onClick={(e) => { e.stopPropagation(); removeFile(file.name); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(file.name);
+                    }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-3.5" />
@@ -246,18 +282,7 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="px-4 py-4 border-t border-border">
-        <Button
-          onClick={handleCreate}
-          disabled={!name.trim()}
-          className="w-full rounded-xl"
-        >
-          Create Agent
-        </Button>
-      </div>
+      )}
     </div>
   );
 };
