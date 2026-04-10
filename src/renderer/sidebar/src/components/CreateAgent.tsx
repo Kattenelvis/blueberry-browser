@@ -176,6 +176,27 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
     },
   ] as const;
 
+  const mockFiles = [
+    {
+      name: "Q2-product-brief.pdf",
+      meta: "2.4 MB",
+      status: "Indexed",
+      tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+    },
+    {
+      name: "customer-notes.csv",
+      meta: "184 KB",
+      status: "Indexed",
+      tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+    },
+    {
+      name: "brand-guidelines.docx",
+      meta: "916 KB",
+      status: "Indexing",
+      tone: "bg-amber-500/10 text-amber-600 dark:text-amber-300",
+    },
+  ] as const;
+
   const getEnabledFeatureLabels = (agent: AgentInfo) =>
     FEATURES.filter((feature) => agent.config.features[feature.id]).map(
       (feature) => feature.label,
@@ -364,8 +385,50 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
             />
           </div>
 
+          <div className="rounded-xl border border-border bg-muted/20 p-4 flex flex-col gap-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Attached Files
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Mock UI for documents available to an agent.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {mockFiles.map((file) => (
+                <div
+                  key={file.name}
+                  className="rounded-xl border border-border bg-background px-4 py-3 flex items-center gap-3"
+                >
+                  <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <FileText className="size-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {file.meta}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${file.tone}`}
+                  >
+                    {file.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {files.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Recently Added
+                </p>
+              </div>
               {files.map((file) => (
                 <div
                   key={file.name}
