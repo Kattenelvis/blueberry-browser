@@ -4,6 +4,7 @@ import {
   tool,
   type LanguageModel,
   type CoreMessage,
+  type Tool,
   stepCountIs,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -12,6 +13,7 @@ import * as dotenv from "dotenv";
 import { join } from "path";
 import { z } from "zod";
 import type { Window } from "./Window";
+import type { IAgent } from "./Agent";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
@@ -43,6 +45,7 @@ export class LLMClient {
   private readonly modelName: string;
   private readonly model: LanguageModel | null;
   private messages: CoreMessage[] = [];
+  private activeAgent: IAgent | null = null;
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
@@ -56,6 +59,10 @@ export class LLMClient {
   // Set the window reference after construction to avoid circular dependencies
   setWindow(window: Window): void {
     this.window = window;
+  }
+
+  setAgent(agent: IAgent | null): void {
+    this.activeAgent = agent;
   }
 
   private getProvider(): LLMProvider {
@@ -155,13 +162,15 @@ export class LLMClient {
       }
     }
 
-    // Build system message
+    const systemContent = this.activeAgent
+      ? this.activeAgent.getSystemPrompt({ url: pageUrl, pageText })
+      : this.buildSystemPrompt(pageUrl, pageText);
+
     const systemMessage: CoreMessage = {
       role: "system",
-      content: this.buildSystemPrompt(pageUrl, pageText),
+      content: systemContent,
     };
 
-    // Include all messages in history (system + conversation)
     return [systemMessage, ...this.messages];
   }
 
@@ -172,12 +181,8 @@ export class LLMClient {
     const parts: string[] = [
       "You are a helpful AI assistant integrated into a web browser.",
       "You can analyze and discuss web pages with the user.",
-      "You have a tool called takeScreenshot that captures the current browser tab when you need visual context.",
-      "Only call takeScreenshot when the user's request actually requires inspecting the page visually.",
-      "You have a webSearch tool to look up current information when needed.",
-      "Please provide helpful, accurate, and contextual responses about the current webpage.",
-      "Do not describe the conversation as involving an uploaded image unless the user explicitly says they uploaded one.",
-      "If the user asks about specific content, refer to the page content and call takeScreenshot only when visual inspection is necessary.",
+      "Use takeScreenshot only when the user explicitly asks to look at the page visually.",
+      "Use webSearch to look up current information when needed.",
     ];
 
     if (url) {
@@ -197,6 +202,28 @@ export class LLMClient {
     return text.substring(0, maxLength) + "...";
   }
 
+  private getDefaultTools(): Record<string, Tool> {
+    return {
+      takeScreenshot: tool({
+        description:
+          "Capture a screenshot of the current browser tab for visual inspection.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const activeTab = this.window?.activeTab;
+          if (!activeTab) throw new Error("No active tab available to capture.");
+          const image = await activeTab.screenshot();
+          return { imageBase64: image.toPNG().toString("base64"), mediaType: "image/png" as const };
+        },
+        toModelOutput: (output) => ({
+          type: "content",
+          value: [{ type: "media", data: output.imageBase64, mediaType: output.mediaType }],
+        }),
+      }),
+      execute: openai.tools.codeInterpreter(),
+      webSearch: openai.tools.webSearch(),
+    };
+  }
+
   private async streamResponse(
     messages: CoreMessage[],
     messageId: string,
@@ -205,46 +232,18 @@ export class LLMClient {
       throw new Error("Model not initialized");
     }
 
+    const tools =
+      this.activeAgent && this.window
+        ? this.activeAgent.getTools(this.window)
+        : this.getDefaultTools();
+
     const result = streamText({
       model: this.model,
       messages,
       temperature: DEFAULT_TEMPERATURE,
       maxRetries: 3,
       stopWhen: stepCountIs(5),
-      tools: {
-        takeScreenshot: tool({
-          description:
-            "Capture a screenshot of the current browser tab for visual inspection.",
-          inputSchema: z.object({}),
-          execute: async () => {
-            const activeTab = this.window?.activeTab;
-
-            if (!activeTab) {
-              throw new Error("No active tab available to capture.");
-            }
-
-            const image = await activeTab.screenshot();
-            const pngBase64 = image.toPNG().toString("base64");
-
-            return {
-              imageBase64: pngBase64,
-              mediaType: "image/png",
-            };
-          },
-          toModelOutput: (output) => ({
-            type: "content",
-            value: [
-              {
-                type: "media",
-                data: output.imageBase64,
-                mediaType: output.mediaType,
-              },
-            ],
-          }),
-        }),
-        execute: openai.tools.codeInterpreter(),
-        webSearch: openai.tools.webSearch(),
-      },
+      tools,
     });
 
     await this.processStream(result.textStream, messageId);
@@ -338,6 +337,10 @@ export class LLMClient {
       content: errorMessage,
       isComplete: true,
     });
+  }
+
+  private sendMessagesToRenderer(): void {
+    this.webContents.send("chat-messages-updated", this.messages);
   }
 
   private sendStreamChunk(messageId: string, chunk: StreamChunk): void {

@@ -168,6 +168,12 @@ export class EventManager {
       await this.mainWindow.sidebar.client.sendChatMessage(request);
     });
 
+    // Create agent
+    ipcMain.handle("sidebar-create-agent", (_, config) => {
+      const agent = this.mainWindow.sidebar.createAgent(config);
+      return { name: agent.name, config: agent.config };
+    });
+
     // Clear chat
     ipcMain.handle("sidebar-clear-chat", () => {
       this.mainWindow.sidebar.client.clearMessages();

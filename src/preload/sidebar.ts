@@ -25,6 +25,9 @@ const sidebarAPI = {
 
   clearChat: () => electronAPI.ipcRenderer.invoke("sidebar-clear-chat"),
 
+  createAgent: (config: { name: string; features: Record<string, boolean> }) =>
+    electronAPI.ipcRenderer.invoke("sidebar-create-agent", config),
+
   getMessages: () => electronAPI.ipcRenderer.invoke("sidebar-get-messages"),
 
   onChatResponse: (callback: (data: ChatResponse) => void) => {

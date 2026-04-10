@@ -2,12 +2,14 @@ import { is } from "@electron-toolkit/utils";
 import { BaseWindow, WebContentsView } from "electron";
 import { join } from "path";
 import { LLMClient } from "./LLMClient";
+import { BrowserAgent, type AgentConfig, type IAgent } from "./Agent";
 
 export class SideBar {
   private webContentsView: WebContentsView;
   private baseWindow: BaseWindow;
   private llmClient: LLMClient;
   private isVisible: boolean = true;
+  private agents: IAgent[] = [];
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -78,6 +80,18 @@ export class SideBar {
 
   get client(): LLMClient {
     return this.llmClient;
+  }
+
+  createAgent(config: AgentConfig): IAgent {
+    const agent = new BrowserAgent(config);
+    this.agents.push(agent);
+    this.llmClient.setAgent(agent);
+    console.log(`Agent created and activated: "${agent.name}"`);
+    return agent;
+  }
+
+  getAgents(): IAgent[] {
+    return this.agents;
   }
 
   show(): void {

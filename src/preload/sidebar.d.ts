@@ -23,11 +23,24 @@ interface TabInfo {
   isActive: boolean;
 }
 
+interface AgentConfig {
+  name: string;
+  features: Record<string, boolean>;
+}
+
+interface CreatedAgent {
+  name: string;
+  config: AgentConfig;
+}
+
 interface SidebarAPI {
   // Chat functionality
   sendChatMessage: (request: ChatRequest) => Promise<void>;
   onChatResponse: (callback: (data: ChatResponse) => void) => void;
   removeChatResponseListener: () => void;
+
+  // Agent management
+  createAgent: (config: AgentConfig) => Promise<CreatedAgent>;
 
   // Page content access
   getPageContent: () => Promise<string | null>;

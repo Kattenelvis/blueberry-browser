@@ -72,9 +72,8 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
     setFeatures((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleCreate = () => {
-    // Placeholder — wired up later
-    console.log("Create agent", { name, features });
+  const handleCreate = async () => {
+    await window.sidebarAPI.createAgent({ name: name.trim(), features });
     onBack();
   };
 
