@@ -3,6 +3,7 @@ import {
   streamText,
   type LanguageModel,
   type CoreMessage,
+  type ResponseMessage,
   stepCountIs,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -172,27 +173,37 @@ export class LLMClient {
 
     const systemMessage: CoreMessage = {
       role: "system",
-      content: this.activeAgent?.getSystemPrompt({ url: pageUrl, pageText }) ?? "",
+      content:
+        this.activeAgent?.getSystemPrompt({ url: pageUrl, pageText }) ?? "",
     };
 
     return [systemMessage, ...this.messages];
+  }
+
+  private getModelForCurrentAgent(): LanguageModel {
+    if (!this.model) {
+      throw new Error("Model not initialized");
+    }
+    if (
+      this.provider === "openai" &&
+      this.activeAgent?.config.features.execute_code
+    ) {
+      return openai.responses(this.modelName);
+    }
+    return this.model;
   }
 
   private async streamResponse(
     messages: CoreMessage[],
     messageId: string,
   ): Promise<void> {
-    if (!this.model) {
-      throw new Error("Model not initialized");
-    }
-
     const tools =
       this.activeAgent && this.window
         ? this.activeAgent.getTools(this.window)
         : {};
 
     const result = streamText({
-      model: this.model,
+      model: this.getModelForCurrentAgent(),
       messages,
       temperature: DEFAULT_TEMPERATURE,
       maxRetries: 3,
@@ -200,14 +211,18 @@ export class LLMClient {
       tools,
     });
 
-    await this.processStream(result.textStream, messageId);
+    await this.processStream(result, messageId);
   }
 
   private async processStream(
-    textStream: AsyncIterable<string>,
+    result: {
+      textStream: AsyncIterable<string>;
+      response: Promise<{ messages: ResponseMessage[] }>;
+    },
     messageId: string,
   ): Promise<void> {
     let accumulatedText = "";
+    const textStream = result.textStream;
 
     // Create a placeholder assistant message
     const assistantMessage: CoreMessage = {
@@ -235,11 +250,12 @@ export class LLMClient {
       });
     }
 
-    // Final update with complete content
-    this.messages[messageIndex] = {
-      role: "assistant",
-      content: accumulatedText,
-    };
+    const response = await result.response;
+    const responseMessages = response.messages as CoreMessage[];
+
+    // Replace the streaming placeholder with the provider-normalized messages
+    // so tool calls and tool results are preserved for follow-up turns.
+    this.messages.splice(messageIndex, 1, ...responseMessages);
     this.sendMessagesToRenderer();
 
     // Send the final complete signal
