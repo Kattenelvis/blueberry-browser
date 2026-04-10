@@ -1,6 +1,7 @@
 import { WebContents } from "electron";
 import {
   streamText,
+  tool,
   type LanguageModel,
   type CoreMessage,
   stepCountIs,
@@ -9,6 +10,7 @@ import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import * as dotenv from "dotenv";
 import { join } from "path";
+import { z } from "zod";
 import type { Window } from "./Window";
 
 // Load environment variables from .env file
@@ -116,46 +118,15 @@ export class LLMClient {
     }
 
     try {
-      // Get screenshot from active tab if available
-      let screenshot: string | null = null;
-
-      const activeTab = this?.window?.activeTab;
-      if (activeTab) {
-        try {
-          const image = await activeTab.screenshot();
-          screenshot = image.toDataURL();
-        } catch (error) {
-          console.error("Failed to capture screenshot:", error);
-        }
-      }
-
-      // Build user message content with screenshot first, then text
-      const userContent: any[] = [];
-
-      // Add screenshot as the first part if available
-      if (screenshot) {
-        userContent.push({
-          type: "image",
-          image: screenshot,
-        });
-      }
-
-      // Add text content
-      userContent.push({
-        type: "text",
-        text: request.message,
-      });
-
-      // Create user message in CoreMessage format
       const userMessage: CoreMessage = {
         role: "user",
-        content: userContent.length === 1 ? request.message : userContent,
+        content: request.message,
       };
 
       this.messages.push(userMessage);
 
       // Send updated messages to renderer
-      this.sendMessagesToRenderer();
+      this.webContents.send("chat-messages-updated", this.messages);
 
       const messages = await this.prepareMessagesWithContext(request);
       await this.streamResponse(messages, request.messageId);
@@ -163,19 +134,6 @@ export class LLMClient {
       console.error("Error in LLM request:", error);
       this.handleStreamError(error, request.messageId);
     }
-  }
-
-  clearMessages(): void {
-    this.messages = [];
-    this.sendMessagesToRenderer();
-  }
-
-  getMessages(): CoreMessage[] {
-    return this.messages;
-  }
-
-  private sendMessagesToRenderer(): void {
-    this.webContents.send("chat-messages-updated", this.messages);
   }
 
   private async prepareMessagesWithContext(
@@ -214,9 +172,12 @@ export class LLMClient {
     const parts: string[] = [
       "You are a helpful AI assistant integrated into a web browser.",
       "You can analyze and discuss web pages with the user.",
-      "The user's messages may include screenshots of the current page as the first image.",
-      "You have a tool called runJavaScript that executes JavaScript in the active browser tab and returns the result.",
-      "Use runJavaScript proactively to interact with the page, extract data, manipulate the DOM, or answer questions about page content.",
+      "You have a tool called takeScreenshot that captures the current browser tab when you need visual context.",
+      "Only call takeScreenshot when the user's request actually requires inspecting the page visually.",
+      "You have a webSearch tool to look up current information when needed.",
+      "Please provide helpful, accurate, and contextual responses about the current webpage.",
+      "Do not describe the conversation as involving an uploaded image unless the user explicitly says they uploaded one.",
+      "If the user asks about specific content, refer to the page content and call takeScreenshot only when visual inspection is necessary.",
     ];
 
     if (url) {
@@ -227,11 +188,6 @@ export class LLMClient {
       const truncatedText = this.truncateText(pageText, MAX_CONTEXT_LENGTH);
       parts.push(`\nPage content (text):\n${truncatedText}`);
     }
-
-    parts.push(
-      "\nPlease provide helpful, accurate, and contextual responses about the current webpage.",
-      "If the user asks about specific content, refer to the page content and/or screenshot provided.",
-    );
 
     return parts.join("\n");
   }
@@ -256,7 +212,38 @@ export class LLMClient {
       maxRetries: 3,
       stopWhen: stepCountIs(5),
       tools: {
+        takeScreenshot: tool({
+          description:
+            "Capture a screenshot of the current browser tab for visual inspection.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            const activeTab = this.window?.activeTab;
+
+            if (!activeTab) {
+              throw new Error("No active tab available to capture.");
+            }
+
+            const image = await activeTab.screenshot();
+            const pngBase64 = image.toPNG().toString("base64");
+
+            return {
+              imageBase64: pngBase64,
+              mediaType: "image/png",
+            };
+          },
+          toModelOutput: (output) => ({
+            type: "content",
+            value: [
+              {
+                type: "media",
+                data: output.imageBase64,
+                mediaType: output.mediaType,
+              },
+            ],
+          }),
+        }),
         execute: openai.tools.codeInterpreter(),
+        webSearch: openai.tools.webSearch(),
       },
     });
 
