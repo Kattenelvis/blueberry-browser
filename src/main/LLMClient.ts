@@ -65,6 +65,14 @@ export class LLMClient {
     this.activeAgent = agent;
   }
 
+  clearMessages(): void {
+    this.messages = [];
+  }
+
+  getMessages(): CoreMessage[] {
+    return this.messages;
+  }
+
   private getProvider(): LLMProvider {
     const provider = process.env.LLM_PROVIDER?.toLowerCase();
     if (provider === "anthropic") return "anthropic";

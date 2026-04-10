@@ -286,7 +286,7 @@ const AgentStrip: React.FC<{
   agents: AgentInfo[];
   onSelect: (name: string) => void;
 }> = ({ agents, onSelect }) => {
-  if (agents.length === 0) return <div>{agents.length}</div>;
+  if (agents.length === 0) return null;
   return (
     <div className="flex gap-1.5 flex-wrap">
       {agents.map((agent) => (
@@ -322,12 +322,8 @@ export const Chat: React.FC = () => {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
 
   const loadAgents = async () => {
-    try {
-      const list = await window.sidebarAPI.getAgents();
-      setAgents(list);
-    } catch {
-      // agents unavailable
-    }
+    const list = await window.sidebarAPI.getAgents();
+    setAgents(list);
   };
 
   useEffect(() => {
