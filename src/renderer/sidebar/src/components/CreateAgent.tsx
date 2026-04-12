@@ -6,6 +6,7 @@ import {
   CalendarClock,
   FileText,
   LoaderCircle,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -399,7 +400,7 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
               {mockFiles.map((file) => (
                 <div
                   key={file.name}
-                  className="rounded-xl border border-border bg-background px-4 py-3 flex items-center gap-3"
+                  className="relative group rounded-xl border border-border bg-background px-4 py-3 flex items-center gap-3 overflow-hidden"
                 >
                   <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <FileText className="size-4 text-muted-foreground" />
@@ -417,6 +418,16 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
                   >
                     {file.status}
                   </span>
+                  <div
+                    className={cn(
+                      "absolute inset-0 flex items-center justify-center rounded-xl",
+                      "bg-destructive/10 backdrop-blur-[2px]",
+                      "opacity-0 group-hover:opacity-100",
+                      "transition-opacity duration-200 cursor-pointer",
+                    )}
+                  >
+                    <Trash2 className="size-5 text-destructive transition-transform duration-200 scale-90 group-hover:scale-100" />
+                  </div>
                 </div>
               ))}
             </div>
