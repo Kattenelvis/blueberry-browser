@@ -165,6 +165,8 @@ export class EventManager {
     // Chat message
     ipcMain.handle("sidebar-chat-message", async (_, request) => {
       // The LLMClient now handles getting the screenshot and context directly
+      console.log("hiiiiii", request);
+
       await this.mainWindow.sidebar.client.sendChatMessage(request);
     });
 

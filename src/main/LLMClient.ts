@@ -12,6 +12,7 @@ import type { Window } from "./Window";
 import { ErrorHandling } from "./ErrorHandling";
 import type { IAgent } from "./Agent";
 import { createLLMProvider, type ILLMProvider } from "./LLMModelSelector";
+import { log } from "console";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
@@ -101,6 +102,7 @@ export class LLMClient {
 
       const messages = await this.prepareMessagesWithContext();
       await this.streamResponse(messages, request.messageId);
+      console.log(request, messages, "HIII");
     } catch (error) {
       console.error("Error in LLM request:", error);
       this.errorHandling.handleStreamError(error, request.messageId);
@@ -158,7 +160,7 @@ export class LLMClient {
       messages,
       temperature: DEFAULT_TEMPERATURE,
       maxRetries: 3,
-      stopWhen: stepCountIs(1),
+      stopWhen: stepCountIs(2),
       tools,
     });
 
@@ -206,7 +208,13 @@ export class LLMClient {
 
     // Replace the streaming placeholder with the provider-normalized messages
     // so tool calls and tool results are preserved for follow-up turns.
-    this.messages.splice(messageIndex, 1, ...responseMessages);
+    // Strip image data from tool results — base64 screenshots accumulate fast
+    // and exceed context limits. The model can retake a screenshot if needed.
+    this.messages.splice(
+      messageIndex,
+      1,
+      ...this.stripImages(responseMessages),
+    );
     this.sendMessagesToRenderer();
 
     // Send the final complete signal
@@ -214,6 +222,29 @@ export class LLMClient {
       content: accumulatedText,
       isComplete: true,
     });
+  }
+
+  private stripImages(messages: CoreMessage[]): CoreMessage[] {
+    const before = JSON.stringify(messages).length;
+    const result = JSON.parse(
+      JSON.stringify(messages, (_key, value) => {
+        if (value !== null && typeof value === "object") {
+          // toModelOutput format: { type: 'media', data: string }
+          if (value.type === "media" && typeof value.data === "string") {
+            return { type: "text", text: "[screenshot taken]" };
+          }
+          // raw execute() output: { imageBase64: string }
+          if (typeof value.imageBase64 === "string") {
+            return { type: "text", text: "[screenshot taken]" };
+          }
+        }
+        return value;
+      }),
+    );
+    console.log(
+      `[stripImages] ${before} → ${JSON.stringify(result).length} bytes`,
+    );
+    return result;
   }
 
   private sendMessagesToRenderer(): void {

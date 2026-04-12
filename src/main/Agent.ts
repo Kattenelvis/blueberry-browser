@@ -86,9 +86,10 @@ export class BrowserAgent implements IAgent {
           const activeTab = window.activeTab;
           if (!activeTab) throw new Error("No active tab available.");
           const image = await activeTab.screenshot();
+          const resized = image.resize({ width: 1024 });
           return {
-            imageBase64: image.toPNG().toString("base64"),
-            mediaType: "image/png" as const,
+            imageBase64: resized.toJPEG(80).toString("base64"),
+            mediaType: "image/jpeg" as const,
           };
         },
         toModelOutput: (output) => ({
