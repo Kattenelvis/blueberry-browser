@@ -391,7 +391,7 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
                 Attached Files
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Mock UI for documents available to an agent.
+                Documents available for the AI.
               </p>
             </div>
 
@@ -466,7 +466,7 @@ export const CreateAgent: React.FC<CreateAgentProps> = ({ onBack }) => {
             <div>
               <p className="text-sm font-medium">Schedule AI Jobs</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Mock UI for queued and recurring automations.
+                Documents available for the AI.
               </p>
             </div>
           </div>
